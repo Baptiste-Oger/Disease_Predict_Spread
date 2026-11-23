@@ -366,7 +366,6 @@ Optimize_bandwidth_LOO <- function(IDs, values, coords,
 #' @param IDs Vector. Identifiers for observations.
 #' @param values Matrix/data.frame. Response variables (n × p).
 #' @param coords Matrix/data.frame. Coordinates of observations (n × 2).
-#' @param groups Vector. Group labels used for cross-validation.
 #' @param interval_bw Numeric vector of length 2. Search interval for bandwidth.
 #' @param b_grid Numeric vector. Grid of candidate values for the shape parameter b.
 #'
@@ -390,13 +389,12 @@ Optimize_bandwidth_ExpPower <- function(IDs, values, coords, groups,
   # Grid search over shape parameter b
   res <- lapply(b_grid, function(b) {
     
-    opt <- Optimize_bandwidth_CV(IDs = IDs,
-                                 values = values,
-                                 coords = coords,
-                                 groups = groups,
-                                 interval = interval_bw,
-                                 kernel_type = "ExpPower",
-                                 b = b )
+    opt <- Optimize_bandwidth_LOO(IDs = IDs,
+                                  values = values,
+                                  coords = coords,
+                                  interval = interval_bw,
+                                  kernel_type = "ExpPower",
+                                  b = b )
     
     list(b = b,
          bw = opt$minimum,
