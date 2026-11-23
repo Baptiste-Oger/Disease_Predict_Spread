@@ -400,11 +400,11 @@ Spatio_temporal_spread <- function(y_col,
   df_coords_sub <- df_coords_sub[match(ids, df_coords_sub$id),]
   
   # Bandwidth optimization (DPC smoothing)
-  bw_dpc <- Optimize_bandwidth_CV(IDs = df_coords_sub$id,
-                                  values = mat_dpc,
-                                  coords = st_coordinates(df_coords_sub$geometry),
-                                  groups = df_coords_sub$group,
-                                  interval = distance_interval)
+  bw_dpc <- Optimize_bandwidth_LOO(IDs = df_coords_sub$id,
+                                   values = mat_dpc,
+                                   coords = st_coordinates(df_coords_sub$geometry),
+                                   interval = distance_interval,
+                                   kernel_type = "Gaussian")
   
   # Neighborhood smoothing 
   local_smoothed_dpc <- kernel_smoothing(coords_source = st_coordinates(df_coords_sub$geometry),
@@ -440,11 +440,11 @@ Spatio_temporal_spread <- function(y_col,
   df_coords_complete <- df_coords_complete[match(ids_complete, df_coords_complete$id),]
   
   # Bandwidth optimization
-  bw_grid <- Optimize_bandwidth_CV(IDs = df_coords_complete$id,
-                                   values = mat_dpc_complete,
-                                   coords = st_coordinates(df_coords_complete$geometry),
-                                   groups = df_coords_complete$group,
-                                   interval = distance_interval)
+  bw_grid <- Optimize_bandwidth_LOO(IDs = df_coords_complete$id,
+                                    values = mat_dpc_complete,
+                                    coords = st_coordinates(df_coords_complete$geometry),
+                                    interval = distance_interval,
+                                    kernel_type = "Gaussian")
   
   # Spatial interpolation to grid 
   res <- kernel_smoothing(coords_source = st_coordinates(df_coords_complete$geometry),
