@@ -107,9 +107,15 @@ kernel_smoothing <- function(coords_source , values_source, coords_new,
   
   # Weighted averaging
   for (i in 1:ncol(values_source)) { 
-    den <- rowSums(weights)
+    valid <- is.finite(values_source[, i])
+    
+    weights_valid <- weights[, valid, drop = FALSE]
+    values_valid <- values_source[valid, i]
+    
+    den <- rowSums(weights_valid)
     den[den == 0] <- NA # Avoid div by 0
-    values_new[,i] <- as.numeric(weights %*% values_source[,i])/den
+    
+    values_new[, i] <- as.numeric(weights_valid %*% values_valid) / den
   }
   
   # Apply distance threshold
