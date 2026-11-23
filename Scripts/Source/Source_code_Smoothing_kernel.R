@@ -259,6 +259,102 @@ Optimize_bandwidth_CV <- function(IDs, values, coords, groups,
 }
 
 
+## Function: Optimize_bandwidth_LOO ----------------------------------------
+#' 
+#' This function selects the optimal bandwidth parameter for spatial kernel
+#' smoothing using leave-one-out cross-validation (LOO-CV).
+#'
+#' The optimization is based on minimizing the mean RMSE computed
+#' across valid observations.
+#'
+#' @param IDs Vector. Identifiers for observations (used to determine the
+#'  number of observations).
+#' @param values Matrix/data.frame. Response variables (n × p).
+#' @param coords Matrix/data.frame. Coordinates of observations (n × 2).
+#' @param interval Numeric vector of length 2. Search interval for bandwidth.
+#' @param kernel_type Character. Type of kernel function (default: "Gaussian").
+#' @param b Numeric. Shape parameter for the "ExpPower" kernel (optional).
+#'
+#' @details
+#' The procedure:
+#'
+#' 1. Perform leave-one-out cross-validation:
+#'    - Each observation is successively used as a test set
+#'    - The remaining observations form the training set
+#'    - Observations with no valid response values are excluded
+#'
+#' 2. For each candidate bandwidth:
+#'    - Apply kernel smoothing from the training observations to the
+#'      left-out observation
+#'    - Keep only valid predicted and observed values
+#'    - Compute the RMSE between predicted and observed values
+#'    - Average RMSE across valid observations
+#'
+#' 3. Select the bandwidth minimizing the mean RMSE
+#'
+#' @return A list containing:
+#'  - minimum: Optimal bandwidth
+#'  - objective: Corresponding mean RMSE
+
+
+Optimize_bandwidth_LOO <- function(IDs, values, coords, 
+                                   interval,
+                                   kernel_type = "Gaussian", 
+                                   b = NULL) {
+  
+  n <- length(IDs)
+  res <- NULL
+  
+  f <- function(bw){
+    
+    rmse_total <- 0
+    n_valid <- 0
+    
+    for(i in 1:n){
+      
+      # Skip sites with no DPC
+      if(all(!is.finite(as.matrix(values[i, ])))){
+        next
+      }
+      
+      grid <- rbind(coords[i,])
+      smoothed <- kernel_smoothing(coords_source = coords[-i,],
+                                   values_source = values[-i,], 
+                                   coords_new = grid, 
+                                   bw = bw,
+                                   kernel_type = kernel_type, 
+                                   dist_seuil = Inf,
+                                   b = b)
+      
+      # Keep valid dates
+      valid <- is.finite(smoothed[1, ]) & is.finite(as.matrix(values[i, ]))
+      
+      if(!any(valid)){
+        next
+      }
+      
+      rmse_new <- rmse(as.numeric(smoothed[1, valid]),
+                       as.numeric(values[i, valid]))
+      
+      # Sum
+      rmse_total <- rmse_total + rmse_new
+      n_valid <- n_valid + 1
+    }
+    
+    if(n_valid == 0){
+      return(Inf)
+    }
+    
+    return(rmse_total / n_valid)
+  }
+  
+  res <- optimize(f, interval)
+  
+  return(res)
+}
+
+
+
 ## Function: Optimize_bandwidth_ExpPower -----------------------------------
 #' 
 #' This function jointly selects the optimal bandwidth and shape parameter (b)
