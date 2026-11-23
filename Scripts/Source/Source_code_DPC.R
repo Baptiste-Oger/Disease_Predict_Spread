@@ -46,11 +46,13 @@ dpc <- function(time, par){
 #' @details
 #' The fitting procedure:
 #'
-#' 1. Initializes parameters:
-#'  - Growth rate initialized at 0.1
-#'  - Inflection point initialized at mean(time)
+#' 1. Initializes the model parameters:
+#'   - Growth rate is initialized at 0.1.
+#'   - Inflection point is initialized as the time point at which the
+#'     observed disease severity is closest to 50.
 #'
-#' 2. Optimizes parameters based on RMSE as bjective function
+#' 2. Estimates the parameters by minimizing the RMSE between observed
+#'    and predicted disease severity.
 #'
 #' 3. Generates predictions using the optimized parameters
 #'
