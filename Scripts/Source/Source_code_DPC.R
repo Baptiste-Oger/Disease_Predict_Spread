@@ -62,11 +62,15 @@ dpc <- function(time, par){
 
 fit_dpc <- function(time, y, time_pred = NULL){
   
-  # Initial parameter values: growth rate and inflection point
-  par0 <- c(0.1, mean(time))
+  # Initial parameter values: growth rate and inflection point 
+  par0 <- c(0.1, time[which.min(abs(y - 50))]) 
   
-  # Minimize RMSE between observed and predicted values
-  oo <- optim(par0, function(par) rmse(dpc(time, par), y))
+  # Minimize RMSE between observed and predicted values 
+  oo <- optim(par0, 
+              function(par) rmse(dpc(time, par), y), 
+              method = "L-BFGS-B", 
+              lower = c(0.001, min(time) - 365), 
+              upper = c(0.2, max(time) + 365))
   
   # Use observed time if no prediction time is provided
   if(is.null(time_pred)){
