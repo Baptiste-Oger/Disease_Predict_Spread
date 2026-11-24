@@ -3,11 +3,14 @@
 Sys.setlocale("LC_TIME", "C")
 
 # Loading packages
-library(sf)
+
 library(dplyr)
-library(lubridate)
 library(giscoR)
+library(ggplot2)
+library(ggspatial)
 library(here)
+library(lubridate)
+library(sf)
 
 
 # Set paths
@@ -242,7 +245,7 @@ plot_map <- function(temp, week, color_high, time_seq, grid) {
 rst_obs1 <- plot_map(temp = results$res_obs, week = length(results$time_seq), "darkred", 
                      time_seq = results$time_seq, grid = results$grid)
 
-
+rst_obs1 
 
 
 
