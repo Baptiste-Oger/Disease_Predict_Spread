@@ -195,9 +195,9 @@ predict_RF_zero_inflated <- function(covariates,
 
 
 ## Function: tune_RF_hyperparams -------------------------------------------
-#' 
+#'
 #' This function performs hyperparameter tuning for a Random Forest model
-#' using cross-validation via the "caret" package. It evaluates combinations of:
+#' using k-fold cross-validation. It evaluates combinations of:
 #'  - mtry (number of variables randomly sampled at each split)
 #'  - num.trees (number of trees)
 #'
@@ -215,12 +215,11 @@ predict_RF_zero_inflated <- function(covariates,
 #'
 #' 1. Grid search
 #'  - Generates all combinations of "mtry" and "num.trees"
-#'  - k-fold cross-validation via "caret::train"
-#'  - Model evaluation
-#'      Classification: Accuracy is maximized
-#'      Regression: RMSE is minimized 
+#'  - Performs k-fold cross-validation
+#'  - Classification: Brier Score is minimized
+#'  - Regression: RMSE is minimized
 #'
-#' The best parameter set is selected based on the highest score.
+#' The best parameter set is selected based on the lowest score.
 #'
 #' @return A list with:
 #'  - best_params: Data frame with optimal "mtry" and "num.trees"
@@ -228,20 +227,24 @@ predict_RF_zero_inflated <- function(covariates,
 #'
 
 
-tune_RF_hyperparams <- function(Eq, 
-                                data, 
+tune_RF_hyperparams <- function(Eq,
+                                data,
                                 type = c("classification", "regression"),
                                 mtry_grid = 1:10,
                                 ntree_grid = seq(500, 1500, 100),
                                 n_folds = 5) {
+  
   type <- match.arg(type)
   
   # Define grid
-  param_grid <- expand.grid(mtry = mtry_grid, num.trees = ntree_grid)
+  param_grid <- expand.grid(mtry = mtry_grid,
+                            num.trees = ntree_grid)
+  
   param_grid$score <- NA
   
-  # Cross-validation
-  ctrl <- trainControl(method = "cv", number = n_folds)
+  # Create folds
+  folds <- createFolds(model.response(model.frame(Eq, data)),
+                       k = n_folds)
   
   # Grid search
   for (i in seq_len(nrow(param_grid))) {
@@ -249,35 +252,53 @@ tune_RF_hyperparams <- function(Eq,
     mtry_i <- param_grid$mtry[i]
     ntree_i <- param_grid$num.trees[i]
     
-    if (type == "classification") {
+    fold_scores <- numeric(n_folds)
+    
+    for (j in seq_len(n_folds)) {
       
-      model_cv <- train(Eq, 
-                        data = data,
-                        method = "ranger",
-                        trControl = ctrl,
-                        tuneGrid = data.frame(mtry = mtry_i, splitrule = "gini", min.node.size = 1),
-                        num.trees = ntree_i,
-                        importance = "none")
+      test_idx <- folds[[j]]
+      train_idx <- setdiff(seq_len(nrow(data)), test_idx)
       
-      # Maximize accuracy
-      param_grid$score[i] <- model_cv$results$Accuracy
+      train_data <- data[train_idx, , drop = FALSE]
+      test_data <- data[test_idx, , drop = FALSE]
       
-    } else {
-      model_cv <- train(Eq, 
-                        data = data,
-                        method = "ranger",
-                        trControl = ctrl,
-                        tuneGrid = data.frame(mtry = mtry_i, splitrule = "variance", min.node.size = 1),
-                        num.trees = ntree_i,
-                        importance = "none")
-      
-      # Minimize RMSE
-      param_grid$score[i] <- - min(model_cv$results$RMSE)
+      if (type == "classification") {
+        
+        model_cv <- ranger(Eq,
+                           data = train_data,
+                           classification = TRUE,
+                           probability = TRUE,
+                           mtry = mtry_i,
+                           num.trees = ntree_i,
+                           splitrule = "gini",
+                           min.node.size = 1)
+        
+        prob <- predict(model_cv, data = test_data)$predictions[, "1"]
+        obs <- as.numeric(model.response(model.frame(Eq, test_data))) - 1 # -1 because as.numeric gives 1 / 2 instead of 0 / 1
+        
+        fold_scores[j] <- mean((obs - prob)^2) #Brier score
+        
+      } else {
+        
+        model_cv <- ranger(Eq,
+                           data = train_data,
+                           mtry = mtry_i,
+                           num.trees = ntree_i,
+                           splitrule = "variance",
+                           min.node.size = 1)
+        
+        pred <- predict(model_cv, data = test_data)$predictions
+        obs <- model.response(model.frame(Eq, test_data))
+        
+        fold_scores[j] <- sqrt(mean((obs - pred)^2))
+      }
     }
+    
+    param_grid$score[i] <- mean(fold_scores)
   }
-   
+  
   # Get best configuration
-  best_idx <- which.max(param_grid$score)
+  best_idx <- which.min(param_grid$score)
   
   best_params <- param_grid[best_idx, c("mtry", "num.trees")]
   
